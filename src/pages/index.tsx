@@ -44,7 +44,8 @@ export default function Home() {
 	return (
 		<div>
 			<div className="flex flex-col items-center justify-center align-middle h-screen">
-				<p className="text-2xl mb-5">World ID Cloud Template</p>
+				<p className="text-2xl mb-5">We are what we repeatedly do. Excellence, then, is not an act, but a habit.
+				</p>
 				<IDKitWidget
 					action={process.env.NEXT_PUBLIC_WLD_ACTION!}
 					app_id={process.env.NEXT_PUBLIC_WLD_APP_ID as `app_${string}`}

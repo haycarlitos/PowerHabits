@@ -46,7 +46,7 @@ export default function Home() {
 			<div className="flex flex-col items-center justify-center align-middle h-screen">
 			<p className="text-2xl mb-5">We are what we repeatedly do. Excellence, then, is not an act, but a habit.
 			</p>
-			<p className="text-2xl mb-5">Power Habits
+			<p className="text-2xl mb-5">Power Habits.
 			</p>
 				<IDKitWidget
 					action={process.env.NEXT_PUBLIC_WLD_ACTION!}

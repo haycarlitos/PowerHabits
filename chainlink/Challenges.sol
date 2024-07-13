@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "@chainlink/contracts/src/v0.8/functions/v1_0_0/FunctionsClient.sol";
+import "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
 
-contract HabitChallenge is Ownable {
+contract HabitChallenge is FunctionsClient, ConfirmedOwner {
+    using FunctionsRequest for FunctionsRequest.Request;
 
     struct AirdropChallenge {
         string title;
@@ -33,68 +37,62 @@ contract HabitChallenge is Ownable {
     event JoinedCustomChallenge(address participant, uint256 challengeId);
     event CompletedAirdropChallenge(address participant, uint256 challengeId);
     event CompletedCustomChallenge(address participant, uint256 challengeId, uint256 reward);
+    event ResponseReceived(bytes32 requestId, uint256 steps);
 
-    constructor() Ownable(msg.sender) {}
+    bytes32 public s_lastRequestId;
+    uint256 public s_lastSteps;
+    bytes public s_lastResponse;
+    bytes public s_lastError;
 
-    function createAirdropChallenge(string memory title, uint256 reward, uint256 goal) external onlyOwner {
-        airdropChallenges[airdropChallengeCount].title = title;
-        airdropChallenges[airdropChallengeCount].reward = reward;
-        airdropChallenges[airdropChallengeCount].goal = goal;
-        airdropChallenges[airdropChallengeCount].exists = true;
-        emit AirdropChallengeCreated(airdropChallengeCount, title, reward, goal);
-        airdropChallengeCount++;
+    address router = 0xf9B8fc078197181C841c296C876945aaa425B278;
+    bytes32 donID =
+        0x66756e2d657468657265756d2d7365706f6c69612d3100000000000000000000;
+
+    uint32 gasLimit = 300000;
+
+    constructor() FunctionsClient(router) ConfirmedOwner(msg.sender) {}
+
+    function sendRequest(uint64 subscriptionId, string memory userId) public onlyOwner returns (bytes32 requestId) {
+        FunctionsRequest.Request memory req;
+        string memory source = string(abi.encodePacked(
+            "const config = { url: 'https://powerhabits-server.vercel.app/api/health?userId=", userId, "' };",
+            "const response = await Functions.makeHttpRequest(config);",
+            "const steps = response.data.steps;",
+            "return Functions.encodeUint256(steps);"
+        ));
+        req.initializeRequestForInlineJavaScript(source);
+        s_lastRequestId = _sendRequest(req.encodeCBOR(), subscriptionId, gasLimit, donID);
+        return s_lastRequestId;
     }
 
-    function createCustomChallenge(string memory title, uint256 goal) external payable {
-        require(msg.value > 0, "Stake amount must be greater than zero");
-        
-        customChallenges[customChallengeCount].title = title;
-        customChallenges[customChallengeCount].goal = goal;
-        customChallenges[customChallengeCount].stake = msg.value;
-        customChallenges[customChallengeCount].exists = true;
-        emit CustomChallengeCreated(customChallengeCount, title, goal, msg.value);
-        customChallengeCount++;
+    function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
+        require(s_lastRequestId == requestId, "Unexpected request ID");
+        s_lastResponse = response;
+        s_lastError = err;
+        s_lastSteps = abi.decode(response, (uint256));
+        emit ResponseReceived(requestId, s_lastSteps);
     }
 
-    function joinAirdropChallenge(uint256 challengeId) external payable {
-        require(airdropChallenges[challengeId].exists, "Challenge does not exist");
-        require(!airdropChallenges[challengeId].participants[msg.sender], "Already joined");
-        airdropChallenges[challengeId].participants[msg.sender] = true;
-        emit JoinedAirdropChallenge(msg.sender, challengeId);
-    }
-
-    function joinCustomChallenge(uint256 challengeId) external payable {
-        require(customChallenges[challengeId].exists, "Challenge does not exist");
-        require(!customChallenges[challengeId].participants[msg.sender], "Already joined");
-        require(msg.value == customChallenges[challengeId].stake, "Incorrect stake amount");
-        customChallenges[challengeId].participants[msg.sender] = true;
-        emit JoinedCustomChallenge(msg.sender, challengeId);
-    }
-
-    function completeAirdropChallenge(uint256 challengeId, uint256 goalResult, address user) external onlyOwner {
+    function completeAirdropChallenge(uint256 challengeId, address user) external onlyOwner {
         require(airdropChallenges[challengeId].exists, "Challenge does not exist");
         require(airdropChallenges[challengeId].participants[user], "Not a participant");
-        /// CHAINLINK LOGIC
+        uint256 goalResult = s_lastSteps; // Use the Chainlink response
+
         require(goalResult >= airdropChallenges[challengeId].goal, "Goal not met");
-        
-        airdropChallenges[challengeId].participants[user] = false; // Prevent re-entry
+        airdropChallenges[challengeId].participants[user] = false;
         payable(user).transfer(airdropChallenges[challengeId].reward);
-        
         emit CompletedAirdropChallenge(user, challengeId);
     }
 
-    function completeCustomChallenge(uint256 challengeId, uint256 goalResult, address user) external onlyOwner {
+    function completeCustomChallenge(uint256 challengeId, address user) external onlyOwner {
         require(customChallenges[challengeId].exists, "Challenge does not exist");
         require(customChallenges[challengeId].participants[user], "Not a participant");
-        /// CHAINLINK LOGIC
+        uint256 goalResult = s_lastSteps; // Use the Chainlink response
 
         require(goalResult >= customChallenges[challengeId].goal, "Goal not met");
-        
-        customChallenges[challengeId].participants[user] = false; // Prevent re-entry
+        customChallenges[challengeId].participants[user] = false;
         uint256 reward = customChallenges[challengeId].stake * 2; // Example reward logic
-        
         payable(user).transfer(reward);
-        
         emit CompletedCustomChallenge(user, challengeId, reward);
     }
 }

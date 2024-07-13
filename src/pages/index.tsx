@@ -1,3 +1,5 @@
+// pages/index.tsx or any relevant file
+
 import { VerificationLevel, IDKitWidget } from "@worldcoin/idkit";
 import type { ISuccessResult } from "@worldcoin/idkit";
 import type { VerifyReply } from "./api/verify";
@@ -10,9 +12,15 @@ export default function Home() {
 		throw new Error("app_id is not set in environment variables!");
 	}
 
+	const sendBooleanToReactNative = (isSuccess: boolean) => {
+		const data = { verificationSuccess: isSuccess };
+		window.ReactNativeWebView.postMessage(JSON.stringify(data));
+	};
+
 	const onSuccess = (result: ISuccessResult) => {
 		// This is where you should perform frontend actions once a user has been verified, such as redirecting to a new page
 		window.alert("Successfully verified with World ID! Your nullifier hash is: " + result.nullifier_hash);
+		sendBooleanToReactNative(true);
 	};
 
 	const handleProof = async (result: ISuccessResult) => {
@@ -32,9 +40,9 @@ export default function Home() {
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify(reqBody),
-		})
-		const data: VerifyReply = await res.json()
-		if (res.status == 200) {
+		});
+		const data: VerifyReply = await res.json();
+		if (res.status === 200) {
 			console.log("Successful response from backend:\n", data); // Log the response from our backend for visibility
 		} else {
 			throw new Error(`Error code ${res.status} (${data.code}): ${data.detail}` ?? "Unknown error."); // Throw an error if verification fails
@@ -44,8 +52,9 @@ export default function Home() {
 	return (
 		<div>
 			<div className="flex flex-col items-center justify-center align-middle h-screen">
-			<p className="text-2xl mb-5">We are what we repeatedly do.
-			</p>
+				<p className="text-2xl mb-5">
+					We are what we repeatedly do.
+				</p>
 				<IDKitWidget
 					action={process.env.NEXT_PUBLIC_WLD_ACTION!}
 					app_id={process.env.NEXT_PUBLIC_WLD_APP_ID as `app_${string}`}
@@ -53,11 +62,11 @@ export default function Home() {
 					handleVerify={handleProof}
 					verification_level={VerificationLevel.Orb} // Change this to VerificationLevel.Device to accept Orb- and Device-verified users
 				>
-					{({ open }) =>
+					{({ open }) => (
 						<button className="border border-black rounded-md" onClick={open}>
 							<div className="mx-3 my-1">Verify with World ID</div>
 						</button>
-					}
+					)}
 				</IDKitWidget>
 			</div>
 		</div>

@@ -1,23 +1,39 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+// Function to generate random integer between min and max (inclusive)
+const getRandomInt = (min: number, max: number): number => {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+};
+
+// Function to generate random name
+const getRandomName = (): string => {
+    const firstNames: string[] = ["John", "Jane", "Alex", "Emily", "Chris", "Katie", "Michael", "Sarah"];
+    const lastNames: string[] = ["Doe", "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller"];
+    const firstName: string = firstNames[getRandomInt(0, firstNames.length - 1)];
+    const lastName: string = lastNames[getRandomInt(0, lastNames.length - 1)];
+    return `${firstName} ${lastName}`;
+};
+
+interface HealthData {
+    userId: string;
+    name: string;
+    age: number;
+    height: string;
+    weight: string;
+    bloodPressure: string;
+    heartRate: number;
+    steps: number;
+    sleep: string;
+    calories: string;
+    conditions: string[];
+    medications: string[];
+    lastCheckupDate: string;
+}
+
+export default function handler(req: NextApiRequest, res: NextApiResponse): void {
     if (req.method === 'GET') {
-        // Function to generate random integer between min and max (inclusive)
-        const getRandomInt = (min, max) => {
-            return Math.floor(Math.random() * (max - min + 1)) + min;
-        };
-
-        // Function to generate random name
-        const getRandomName = () => {
-            const firstNames = ["John", "Jane", "Alex", "Emily", "Chris", "Katie", "Michael", "Sarah"];
-            const lastNames = ["Doe", "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller"];
-            const firstName = firstNames[getRandomInt(0, firstNames.length - 1)];
-            const lastName = lastNames[getRandomInt(0, lastNames.length - 1)];
-            return `${firstName} ${lastName}`;
-        };
-
         // Simulate Google Health user data with random values
-        const healthData = {
+        const healthData: HealthData = {
             userId: `user${getRandomInt(1000, 9999)}`,
             name: getRandomName(),
             age: getRandomInt(20, 60),
